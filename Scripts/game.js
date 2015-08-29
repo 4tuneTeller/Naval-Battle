@@ -18,17 +18,28 @@ function getRandomInt(min, max) {
 }
 
 function BattleShip (size, rotation) { // конструктор объектов кораблей
-    this.rotation = rotation;
-    this.size = size;
-    this.coords = new Array();
-    this.isAlive = true;
+    this.rotation = rotation; // расположение корабля (вертикальное или горизонтальное)
+    this.size = size; // размер в клетках
+    this.coords = new Array(); // все координаты, в которых расположен корабль
     
-    var isFlipped = false;
-    this.isFlipped = function () {
+    var health = size; // "здоровье" корабля - сколько клеток остались непораженными
+    var isFlipped = false; // поворачивался ли корабль
+    this.isFlipped = function () { // getter для isFlipped (чтобы нельзя было вручную поменять это значение - оно меняется только функцией flip)
         return isFlipped;
     }
+    var isAlive = true; // жив ли корабль
+    this.isAlive = function () { // getter
+        return isAlive;
+    }
     
-    this.flip = function () {
+    this.hit = function () { // функция попадания по кораблю: отнимает единичку "здоровья" (одну клетку подстрелили) и если все клетки корабля поражены - ставит переменную isAlive в false
+        if (--health <= 0) {
+            isAlive = false;
+        }
+        return isAlive;
+    }
+    
+    this.flip = function () { // функция поворота корабля (на случай, если в изначальном положении корабль не влезет в поле)
         if (this.rotation == 0) {
             this.rotation = 1;
         } else {
@@ -38,46 +49,60 @@ function BattleShip (size, rotation) { // конструктор объекто�
     }
 }
 
-function GameFieldManager (isPlayer) { // создадим конструктор объекта для работы с игровым полем
-    //this.isPlayer = isPlayer;
+function GameFieldManager (isPlayer) { // создадим конструктор объекта для работы с игровым полем (параметр указывает, является ли создаваемое поле полем игрока или полем компьютера)
     var gameField = new Array(settings.fieldHeight); // массив для хранения ссылок на объекты jQuery (ячейки игрового поля)
     
-    this.getCellInCoords = function (x, y) {
+    this.getCellInCoords = function (x, y) { // функция получения объекта клетки по координатам
         if (x > 0 && x <= settings.fieldWidth && y > 0 && y <= settings.fieldHeight) {
             return gameField[x][y];
         }
-        else return new FieldCell(null);
+        else return new FieldCell(null); // если заданы некорректны координаты - вернем "несуществующую" клетку, любые манипуляции с ней никак не повлияют на игру
+    }
+    
+    function getCellsAroundCoords(x, y, fieldManager) {
+        return [fieldManager.getCellInCoords(x - 1, y),
+                fieldManager.getCellInCoords(x - 1, y - 1),
+                fieldManager.getCellInCoords(x - 1, y + 1),
+                fieldManager.getCellInCoords(x, y + 1),
+                fieldManager.getCellInCoords(x, y - 1),
+                fieldManager.getCellInCoords(x + 1, y),
+                fieldManager.getCellInCoords(x + 1, y + 1),
+                fieldManager.getCellInCoords(x + 1, y - 1)];
     }
     
     var shipsOnField = new Array(); // массив для хранения кораблей на поле
     
-    function addShip(ship) {
-        for (var ci = 0; ci < ship.coords.length; ci++) {
+    function addShip(ship) { // функция добавления корабля на поле
+        for (var ci = 0; ci < ship.coords.length; ci++) { // пройдемся по всем координатам корабля, пометим соответсвующие клетки корабля как заняты, а клетки вокруг - как недоступные для размещения в них новых кораблей
             var c = ship.coords[ci];
             this.getCellInCoords(c.x, c.y).occupy();
-            this.getCellInCoords(c.x - 1, c.y).reserv();
-            this.getCellInCoords(c.x - 1, c.y - 1).reserv();
-            this.getCellInCoords(c.x - 1, c.y + 1).reserv();
-            this.getCellInCoords(c.x, c.y + 1).reserv();
-            this.getCellInCoords(c.x, c.y - 1).reserv();
-            this.getCellInCoords(c.x + 1, c.y).reserv();
-            this.getCellInCoords(c.x + 1, c.y + 1).reserv();
-            this.getCellInCoords(c.x + 1, c.y - 1).reserv();
+            var cellsAround = getCellsAroundCoords(c.x, c.y , this);
+            for (var i = 0; i < cellsAround.length; i++) {
+                cellsAround[i].reserv();
+            }
+            //this.getCellInCoords(c.x - 1, c.y).reserv(); // можно небояться за граничащие клетки, так как в случае некорректных координат, функция вернет несуществующую клетку, которая вскоре будет удалена сборщиком мусора
+            //this.getCellInCoords(c.x - 1, c.y - 1).reserv();
+            //this.getCellInCoords(c.x - 1, c.y + 1).reserv();
+            //this.getCellInCoords(c.x, c.y + 1).reserv();
+            //this.getCellInCoords(c.x, c.y - 1).reserv();
+            //this.getCellInCoords(c.x + 1, c.y).reserv();
+            //this.getCellInCoords(c.x + 1, c.y + 1).reserv();
+            //this.getCellInCoords(c.x + 1, c.y - 1).reserv();
         }
-        //gameField[c.x][c.y].showShip();
-        shipsOnField.push(ship);
+        
+        shipsOnField.push(ship); // добавляем корабль в массив для последующего доступа к нему
     }
         
     
-    this.getPlayerFieldDiv = function () { // функция получения объекта таблицы с полем (сам объект у нас скрытый, как бы private)
+    this.getPlayerFieldDiv = function () { // getter объекта таблицы с полем (сам объект у нас приватный)
         return _$playerFieldDiv;
     }
     
     this.putShipRandom = function (ship) {
         var isHor = Number(ship.rotation == ShipRotation.HORIZONTAL);
         var isVert = Number(ship.rotation == ShipRotation.VERTICAL);
-        var maxX =settings.fieldWidth - isHor * (ship.size - 1);
-        var maxY =settings.fieldHeight - isVert * (ship.size - 1);
+        var maxX = settings.fieldWidth - isHor * (ship.size - 1);
+        var maxY = settings.fieldHeight - isVert * (ship.size - 1);
         
         function getNextFreeCoords(initX, initY) {
             var curX = initX;
@@ -159,8 +184,8 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                 ship.flip();
                 isHor = Number(ship.rotation == ShipRotation.HORIZONTAL);
                 isVert = Number(ship.rotation == ShipRotation.VERTICAL);
-                maxX =settings.fieldWidth - isHor * (ship.size - 1);
-                maxY =settings.fieldHeight - isVert * (ship.size - 1);
+                maxX = settings.fieldWidth - isHor * (ship.size - 1);
+                maxY = settings.fieldHeight - isVert * (ship.size - 1);
             }
         }
         
@@ -168,7 +193,7 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
         addShip.call(this, ship);
     }
     
-    function getShipInCoords(x, y) {
+    function getShipInCoords(x, y) { // функция получения корабля, расположенного по заданным координатам
         for (var s = 0; s < shipsOnField.length; s++) {
             for (var c = 0; c < shipsOnField[s].coords.length; c++) {
                 if (shipsOnField[s].coords[c].x == x && shipsOnField[s].coords[c].y == y) {
@@ -180,15 +205,22 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
         return null;
     }
     
-    this.hit = function (x, y) {
+    this.hit = function (x, y) { // функция реакции на попадание по клетке игрового поля
         gameField[x][y].hit();
         var shipInCoords = getShipInCoords(x, y);
-        if (shipInCoords != null) {
-            console.log("Попадание по кораблю размером " + shipInCoords.size);
+        if (shipInCoords != null && !shipInCoords.hit()) { // если в клетке находился корабль, проверяем, не убит ли он
+            for (var ci = 0; ci < shipInCoords.coords.length; ci++) { // пройдемся по всем координатам корабля, пометим клетки вокруг него как пораженные - чтобы было ясно, что по ним стрелять уже нет смысла
+                var c = shipInCoords.coords[ci];
+                this.getCellInCoords(c.x, c.y).hit(); 
+                var cellsAround = getCellsAroundCoords(c.x, c.y, this);
+                for (var i = 0; i < cellsAround.length; i++) {
+                    cellsAround[i].hit();
+                }
+            }
         }
     }
     
-    function cellClicked (event) {
+    function cellClicked (event) { // обработчик события нажатия на клетку игрового поля
         this.hit(event.data.y, event.data.x);
     }
     
@@ -226,7 +258,9 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
             }
         }
         
-        this.hit = function () { // функция попадания по ячейке
+        this.hit = function () { // функция попадания по клетке
+            if (hitState != CellHitType.NONE || this.cellObject == null) return;
+            
             if (occupationState == CellOccupationType.OCCUPIED) {
                 hitState = CellHitType.HIT;
                 this.cellObject.removeClass("game-field-cell-with-ship");
