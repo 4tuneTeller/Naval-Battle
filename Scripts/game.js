@@ -35,6 +35,7 @@ function BattleShip (size, rotation) { // конструктор объекто�
 }
 
 function GameFieldManager (isPlayer) { // создадим конструктор объекта для работы с игровым полем
+    //this.isPlayer = isPlayer;
     var gameField = new Array(fieldHeight); // массив для хранения ссылок на объекты jQuery (ячейки игрового поля)
     
     this.getCellInCoords = function (x, y) {
@@ -173,7 +174,7 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
     }
     
     function cellClicked (event) {
-        this.hit(event.data.x, event.data.y);
+        this.hit(event.data.y, event.data.x);
     }
     
     var CellOccupationType = { // объект перечисления состояния занятости ячеек
@@ -201,7 +202,7 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
         
         this.occupy = function () {
             occupationState = CellOccupationType.OCCUPIED;
-            showShip(this);
+            if (isPlayer) showShip(this);
         }
         
         this.reserv = function () {
@@ -297,6 +298,7 @@ $.fn.makeGame = function () {
     this.append(computerField.getPlayerFieldDiv());
     
     generateShips(playerField);
+    generateShips(computerField);
     //playerField.hit(2, 3);
 }
 

@@ -30,7 +30,7 @@
 }
 .game-field-cell-clickable:hover
 {
-    border-color: blue;
+    border-color: cyan;
 }
 .game-field-cell-with-ship
 {
