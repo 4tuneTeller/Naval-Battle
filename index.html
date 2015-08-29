@@ -1,0 +1,27 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+    <title>Морской бой</title>
+    <link rel="stylesheet" type="text/css" href="Styles/gameBoard.css" >
+</head>
+<body>
+    <div>
+        <span id="debugMessage"></span>
+    </div>
+    <div id="gameBoard"></div>
+    <!-- так как в ТЗ указана поддержка ie8, используем старую версию jQuery -->
+    <script type="text/javascript" src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.11.3.min.js"></script>
+    <script type="text/javascript" src="Scripts/game.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            var debugStartTime = new Date().getTime();
+            
+            $("#gameBoard").makeGame();
+            
+            var debugEndTime = new Date().getTime();
+            $("#debugMessage").text(debugEndTime - debugStartTime);
+        });
+    </script>
+</body>
+</html>

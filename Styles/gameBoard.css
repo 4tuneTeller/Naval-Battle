@@ -1,0 +1,58 @@
+.game-field
+{
+    display: inline-table;
+    margin-right: 100px;
+}
+.game-field-caption
+{
+    display: table-caption;
+    text-align: center;
+    font-weight: bold;
+    font-size: larger;
+}
+.game-field-letters-row
+{
+    display: table-row;
+    font-weight: bold;
+    text-align: center;
+}
+.game-field-row
+{
+    display: table-row;
+}
+.game-field-cell
+{
+    display: table-cell;
+    border: solid;
+    border-width: thin;
+    width: 20px;
+    height: 20px;
+}
+.game-field-cell-clickable:hover
+{
+    border-color: blue;
+}
+.game-field-cell-with-ship
+{
+    background-color: blue;
+}
+.game-field-cell-hit
+{
+    background-color: red;
+}
+.game-field-cell-missed
+{
+    background-color: grey;
+}
+/*.game-field-invisible-cell
+{
+    display: table-cell;
+    border: none;
+}*/
+.game-field-headers-cell
+{
+    display: table-cell;
+    border: none;
+    font-weight: bold;
+    text-align: center;
+}
