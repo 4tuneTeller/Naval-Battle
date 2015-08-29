@@ -1,8 +1,6 @@
 (function ($) { // реализуем нашу игру как плагин jQuery, для ограничения области видимости и избежания конфликтов обернем его в модуль
 
-// размеры игрового поля (в ячейках)
-var fieldWidth = 10;
-var fieldHeight = 10;
+var settings;
 
 var ShipRotation = { // объект перечисления состояний поворота кораблей
     HORIZONTAL: 0,
@@ -25,21 +23,27 @@ function BattleShip (size, rotation) { // конструктор объекто�
     this.coords = new Array();
     this.isAlive = true;
     
+    var isFlipped = false;
+    this.isFlipped = function () {
+        return isFlipped;
+    }
+    
     this.flip = function () {
         if (this.rotation == 0) {
             this.rotation = 1;
         } else {
             this.rotation = 0;
         }
+        isFlipped = true;
     }
 }
 
 function GameFieldManager (isPlayer) { // создадим конструктор объекта для работы с игровым полем
     //this.isPlayer = isPlayer;
-    var gameField = new Array(fieldHeight); // массив для хранения ссылок на объекты jQuery (ячейки игрового поля)
+    var gameField = new Array(settings.fieldHeight); // массив для хранения ссылок на объекты jQuery (ячейки игрового поля)
     
     this.getCellInCoords = function (x, y) {
-        if (x > 0 && x <= fieldWidth && y > 0 && y <= fieldHeight) {
+        if (x > 0 && x <= settings.fieldWidth && y > 0 && y <= settings.fieldHeight) {
             return gameField[x][y];
         }
         else return new FieldCell(null);
@@ -72,8 +76,8 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
     this.putShipRandom = function (ship) {
         var isHor = Number(ship.rotation == ShipRotation.HORIZONTAL);
         var isVert = Number(ship.rotation == ShipRotation.VERTICAL);
-        var maxX = fieldWidth - isHor * (ship.size - 1);
-        var maxY = fieldHeight - isVert * (ship.size - 1);
+        var maxX =settings.fieldWidth - isHor * (ship.size - 1);
+        var maxY =settings.fieldHeight - isVert * (ship.size - 1);
         
         function getNextFreeCoords(initX, initY) {
             var curX = initX;
@@ -96,7 +100,7 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                 }
                 if (curX == initX && curY == initY) {
                     console.log("No free space found");
-                    return {x: -1, y: -1};
+                    return null;
                 }
             }
             return {x: curX, y: curY};
@@ -112,19 +116,21 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
         var startX = randX;
         var startY = randY;
         
-        var debugStartTime = new Date().getTime();
+        //var debugStartTime = new Date().getTime();
         
         while (!foundRoom) {
             
-            var debugEndTime = new Date().getTime();
-            if (debugEndTime - debugStartTime > 2000) {
-                console.log("not enought free space X:" + randX + " Y:" + randY);
-                debugger;
-                //return;
-            }
+            //var debugEndTime = new Date().getTime();
+            //if (debugEndTime - debugStartTime > 2000) {
+            //    console.log("not enought free space X:" + randX + " Y:" + randY);
+            //    debugger;
+            //    //return;
+            //}
             
             foundCoords = new Array();
             var tmpFirstCoord = getNextFreeCoords(startX, startY);
+            if (tmpFirstCoord == null) return;
+            
             foundCoords.push(tmpFirstCoord);
             foundRoom = true;
             for (var i = 1; i < ship.size; i++) {
@@ -146,11 +152,15 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                 }
             }
             if (!foundRoom && startX == randX && startY == randY) {
+                if (ship.isFlipped()) {
+                    console.log("Not enought free space for the ship");
+                    return;
+                }
                 ship.flip();
                 isHor = Number(ship.rotation == ShipRotation.HORIZONTAL);
                 isVert = Number(ship.rotation == ShipRotation.VERTICAL);
-                maxX = fieldWidth - isHor * (ship.size - 1);
-                maxY = fieldHeight - isVert * (ship.size - 1);
+                maxX =settings.fieldWidth - isHor * (ship.size - 1);
+                maxY =settings.fieldHeight - isVert * (ship.size - 1);
             }
         }
         
@@ -158,19 +168,24 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
         addShip.call(this, ship);
     }
     
-    //function checkForShipsInCoords(x, y) {
-    //    for (var s = 0; s < shipsOnField.length; s++) {
-    //        for (var c = 0; c < shipsOnField[s].coords.length; c++) {
-    //            if (c.x == x && c.y == y) {
-    //                return true;
-    //            }
-    //        }
-    //    }
-    //    return false;
-    //}
+    function getShipInCoords(x, y) {
+        for (var s = 0; s < shipsOnField.length; s++) {
+            for (var c = 0; c < shipsOnField[s].coords.length; c++) {
+                if (shipsOnField[s].coords[c].x == x && shipsOnField[s].coords[c].y == y) {
+                    return shipsOnField[s];
+                }
+            }
+        }
+        
+        return null;
+    }
     
     this.hit = function (x, y) {
         gameField[x][y].hit();
+        var shipInCoords = getShipInCoords(x, y);
+        if (shipInCoords != null) {
+            console.log("Попадание по кораблю размером " + shipInCoords.size);
+        }
     }
     
     function cellClicked (event) {
@@ -220,6 +235,8 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                 hitState = CellHitType.MISSED;
                 this.cellObject.addClass("game-field-cell-missed");
             }
+            this.cellObject.removeClass("game-field-cell-clickable");
+            this.cellObject.off("click");
         }
         
         function showShip (me) {
@@ -232,7 +249,7 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
         var initCharCode = "А".charCodeAt(0); // получаем код символа буквы А, для генерации
         var charToSkipCharCode = "Й".charCodeAt(0); // код буквы Й, для того, чтобы ее пропустить
         
-        for (var i = 0; i < fieldHeight + 1; i++) { // цикл генерации строк таблицы
+        for (var i = 0; i <settings.fieldHeight + 1; i++) { // цикл генерации строк таблицы
             var $tableRow = $("<div>"); // создаем строку
             if (i == 0) {
                 $tableRow.addClass("game-field-letters-row"); // если строка первая - задаем ей класс для первой строки
@@ -240,7 +257,7 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                 $tableRow.addClass("game-field-row"); // иначе - класс простой строки
             }
             
-            for (var j = 0; j < fieldWidth + 1; j++) { // цикл генерации ячеек для таблицы
+            for (var j = 0; j <settings.fieldWidth + 1; j++) { // цикл генерации ячеек для таблицы
                 //var tableCell = new FieldCell($("<div>")); 
                 var $tableCell = $("<div>"); // создаем ячейку
                 if (i == 0 || j == 0) {
@@ -264,7 +281,7 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                 }
                 if (i != 0 && j != 0) { // добавляем ячейки игрового поля в массив
                     if (i == 1) {
-                        gameField[j] = new Array(fieldWidth); // инициализируем новую строку в массиве
+                        gameField[j] = new Array(settings.fieldWidth); // инициализируем новую строку в массиве
                     }
                     gameField[j][i] = new FieldCell($tableCell); // сохраняем объект ячейки в массив для последующего доступа
                 }
@@ -290,7 +307,14 @@ function generateShips(gameFieldManager) {
     gameFieldManager.putShipRandom(new BattleShip(4, getRandomInt(0, 1)));
 }
 
-$.fn.makeGame = function () {
+$.fn.makeGame = function (options) {
+    
+    settings = $.extend({
+        // размеры игрового поля (в ячейках) по умолчанию
+       fieldWidth: 10,
+       fieldHeight: 10
+    }, options );
+    
     var playerField = new GameFieldManager(true); // создаем объект для поля игрока
     var computerField = new GameFieldManager(false); // создаем объект для поля компьютера
     

@@ -18,7 +18,10 @@
         $(document).ready(function () {
             var debugStartTime = new Date().getTime();
             
-            $("#gameBoard").makeGame();
+            $("#gameBoard").makeGame({
+                fieldWidth: 10,
+                fieldHeight: 10
+            });
             
             var debugEndTime = new Date().getTime();
             $("#debugMessage").text(debugEndTime - debugStartTime);
