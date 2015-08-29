@@ -49,6 +49,10 @@ function BattleShip (size, rotation) { // конструктор объекто�
     }
 }
 
+function GameManager(playerField, computerField, gameBoard) {
+    
+}
+
 function GameFieldManager (isPlayer) { // создадим конструктор объекта для работы с игровым полем (параметр указывает, является ли создаваемое поле полем игрока или полем компьютера)
     var gameField = new Array(settings.fieldHeight); // массив для хранения ссылок на объекты jQuery (ячейки игрового поля)
     
@@ -59,7 +63,7 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
         else return new FieldCell(null); // если заданы некорректны координаты - вернем "несуществующую" клетку, любые манипуляции с ней никак не повлияют на игру
     }
     
-    function getCellsAroundCoords(x, y, fieldManager) {
+    function getCellsAroundCoords(x, y, fieldManager) { // функция для получения всех клеток вокруг клетки с координатами x и y
         return [fieldManager.getCellInCoords(x - 1, y),
                 fieldManager.getCellInCoords(x - 1, y - 1),
                 fieldManager.getCellInCoords(x - 1, y + 1),
@@ -80,14 +84,6 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
             for (var i = 0; i < cellsAround.length; i++) {
                 cellsAround[i].reserv();
             }
-            //this.getCellInCoords(c.x - 1, c.y).reserv(); // можно небояться за граничащие клетки, так как в случае некорректных координат, функция вернет несуществующую клетку, которая вскоре будет удалена сборщиком мусора
-            //this.getCellInCoords(c.x - 1, c.y - 1).reserv();
-            //this.getCellInCoords(c.x - 1, c.y + 1).reserv();
-            //this.getCellInCoords(c.x, c.y + 1).reserv();
-            //this.getCellInCoords(c.x, c.y - 1).reserv();
-            //this.getCellInCoords(c.x + 1, c.y).reserv();
-            //this.getCellInCoords(c.x + 1, c.y + 1).reserv();
-            //this.getCellInCoords(c.x + 1, c.y - 1).reserv();
         }
         
         shipsOnField.push(ship); // добавляем корабль в массив для последующего доступа к нему
@@ -217,6 +213,21 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                     cellsAround[i].hit();
                 }
             }
+            // проверка на победу
+            var isVictory = true;
+            for (var s = 0; s < shipsOnField.length; s++) {
+                if (shipsOnField[s].isAlive()) {
+                    isVictory = false;
+                    break;
+                }
+            }
+            if (isVictory) {
+                if (!isPlayer) {
+                    alert("Вы выиграли! :)"); // если разгорм на поле противника - то игрок выиграл
+                } else {
+                    alert("Вы проиграли! :("); // если на поле игрока - игрок проиграл
+                }
+            }
         }
     }
     
@@ -328,7 +339,7 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
     }).call(this);
 }
 
-function generateShips(gameFieldManager) {
+function generateShips(gameFieldManager) { // функция генерации кораблей
     gameFieldManager.putShipRandom(new BattleShip(1, ShipRotation.HORIZONTAL));
     gameFieldManager.putShipRandom(new BattleShip(1, ShipRotation.HORIZONTAL));
     gameFieldManager.putShipRandom(new BattleShip(1, ShipRotation.HORIZONTAL));
@@ -348,6 +359,8 @@ $.fn.makeGame = function (options) {
        fieldWidth: 10,
        fieldHeight: 10
     }, options );
+    
+    this.empty();
     
     var playerField = new GameFieldManager(true); // создаем объект для поля игрока
     var computerField = new GameFieldManager(false); // создаем объект для поля компьютера
