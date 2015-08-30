@@ -49,9 +49,11 @@ function BattleShip (size, rotation) { // конструктор объекто�
     }
 }
 
-function ComputerAI(playerField) {   
+function ComputerAI(playerField) {
     this.takeTurn = function() {
-        return playerField.hit(getRandomInt(1, settings.fieldWidth), getRandomInt(1, settings.fieldHeight));
+        var coords = playerField.getNextUnhitCoords(getRandomInt(1, settings.fieldWidth), getRandomInt(1, settings.fieldHeight));
+        
+        return playerField.hit(coords.x, coords.y);
     }
 }
 
@@ -59,26 +61,12 @@ function GameManager(playerField, computerField, gameBoard, playerName) {
     var isPlayerTurn = true;
     var computerAI = new ComputerAI(playerField);
     
-    //var computerTurnLabel = $("<div class='game-field-caption'><span>Ход компьютера:</span></div>");
-    //var playerTurnLabel = $("<div class='game-field-caption'><span>Ваш ход, " + playerName + ":</span></div>");
-    
     function switchTurn () {
         isPlayerTurn = !isPlayerTurn;
         this.makeTurn();
     }
     
     this.startGame = function () {
-        //gameBoard.css("display", "table");
-        //gameBoard.append("<div style='display: table-row'></div>").append("<div style='display: table-cell'></div>").append(computerTurnLabel).append("<div style='display: table-cell'></div>").append(playerField.getFieldDiv());
-        //gameBoard.append("<div style='display: table-row'></div>").append("<div style='display: table-cell'></div>").append(playerTurnLabel).append("<div style='display: table-cell'></div>").append(computerField.getFieldDiv());
-        
-        //var leftDiv = $("<div class='left-div'>");
-        //leftDiv.append(computerTurnLabel);
-        //leftDiv.append(playerField.getFieldDiv()); // добавляем поле игрока в div, к которому подключен наш jQuery плагин
-        //var rightDiv = $("<div class='right-div'>");
-        //rightDiv.append(playerTurnLabel);
-        //rightDiv.append(computerField.getFieldDiv());
-        
         playerField.fieldCaption.append("<span>Ход компьютера:</span>");
         computerField.fieldCaption.append("<span>Ваш ход, " + playerName + ":</span>");
         
@@ -165,38 +153,51 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
         return _$fieldDiv;
     }
     
+    function getNextFreeCoords(initX, initY, maxX, maxY) {
+        return getNextCoords(initX, initY, maxX, maxY, true);
+    }
+    
+    this.getNextUnhitCoords = function(initX, initY) {
+        return getNextCoords(initX, initY, settings.fieldWidth, settings.fieldHeight, false);
+    }
+    
+    function getNextCoords(initX, initY, maxX, maxY, isFindFree) {
+        var curX = initX;
+        var curY = initY;
+        if (curX > maxX) {
+            curX = 1;
+            if (++curY > maxY) {
+                curY = 1;
+            } 
+        } else if (curY > maxY) {
+            curY = 1;
+            curX = 1;
+        }
+        
+        while (isFindFree
+               ? gameField[curX][curY].getOccupationState() != CellOccupationType.FREE
+               : gameField[curX][curY].getHitState() != CellHitType.NONE)
+        {
+            if (++curX > maxX) {
+                if (++curY > maxY) {
+                    curY = 1;
+                }
+                curX = 1;
+            }
+            if (curX == initX && curY == initY) {
+                console.log("No free space found");
+                return null;
+            }
+        }
+        return {x: curX, y: curY};
+    }
+    
     this.putShipRandom = function (ship) {
         var isHor = Number(ship.rotation == ShipRotation.HORIZONTAL);
         var isVert = Number(ship.rotation == ShipRotation.VERTICAL);
         var maxX = settings.fieldWidth - isHor * (ship.size - 1);
         var maxY = settings.fieldHeight - isVert * (ship.size - 1);
         
-        function getNextFreeCoords(initX, initY) {
-            var curX = initX;
-            var curY = initY;
-            if (curX > maxX) {
-                curX = 1;
-                if (++curY > maxY) {
-                    curY = 1;
-                } 
-            } else if (curY > maxY) {
-                curY = 1;
-                curX = 1;
-            }
-            while (gameField[curX][curY].getOccupationState() != CellOccupationType.FREE) {
-                if (++curX > maxX) {
-                    if (++curY > maxY) {
-                        curY = 1;
-                    }
-                    curX = 1;
-                }
-                if (curX == initX && curY == initY) {
-                    console.log("No free space found");
-                    return null;
-                }
-            }
-            return {x: curX, y: curY};
-        }
         //var shipWidth = (ship.rotation == ShipRotation.HORIZONTAL) ? ship.size : 1;
         //var shipHeight = (ship.rotation == ShipRotation.VERTICAL) ? ship.size : 1;
         var randX = getRandomInt(1, maxX);
@@ -220,7 +221,7 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
             //}
             
             foundCoords = new Array();
-            var tmpFirstCoord = getNextFreeCoords(startX, startY);
+            var tmpFirstCoord = getNextFreeCoords(startX, startY, maxX, maxY);
             if (tmpFirstCoord == null) return;
             
             foundCoords.push(tmpFirstCoord);
@@ -352,6 +353,10 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
         
         this.getOccupationState = function () {
             return occupationState;
+        }
+        
+        this.getHitState = function () {
+            return hitState;
         }
         
         this.occupy = function () {
