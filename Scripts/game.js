@@ -102,6 +102,10 @@ function ComputerAI(playerField) {
                 coords = coordsSum(lastShot, coordsToTry[shootAroundTryCount]);
             } else if (foundShipDirection) {
                 coords = coordsSum(lastShot, coordsToTry[shootAroundTryCount]);
+                if (coords.x < 1 || coords.x > settings.fieldWidth || coords.y < 1 || coords.y > settings.fieldHeight) {
+                    coordsToTry = coordsMult(coordsToTry, -1);
+                    coords = coordsSum(initHit, coordsToTry[shootAroundTryCount]);
+                }
             } else do {
                 shootAroundTryCount++;
                 coords = coordsSum(lastShot, coordsToTry[shootAroundTryCount]); // находим координату вокруг последнего попадания
@@ -593,29 +597,18 @@ function generateShips(gameFieldManager) { // функция генерации 
 }
 
 $.fn.makeGame = function (options) {
-    
+    // настройки плагина
     settings = $.extend({
         // размеры игрового поля (в ячейках) по умолчанию
        fieldWidth: 10,
        fieldHeight: 10,
-       computerWaitTime: 1000
+       computerWaitTime: 1000 // пауза между ходами компьютера (в мс)
     }, options );
     
-    this.empty();
+    this.empty(); // очищаем div, в котором будем размещать игру
     
-    //var playerField = new GameFieldManager(true); // создаем объект для поля игрока
-    //var computerField = new GameFieldManager(false); // создаем объект для поля компьютера
-    
-    //this.append(playerField.getFieldDiv()); // добавляем поле игрока в div, к которому подключен наш jQuery плагин
-    //this.append(computerField.getFieldDiv());
-    
-    //generateShips(playerField);
-    //generateShips(computerField);
-    
-    var gameManager = new GameManager(this, prompt("Здравствуйте! Пожалуйста, введите ваше имя:"));
-    gameManager.startGame();
-    //gameManager.makeTurn();
-    //playerField.hit(2, 3);
+    var gameManager = new GameManager(this, prompt("Здравствуйте! Пожалуйста, введите ваше имя:")); // создаем объект управления игрой, передаем ему jQuert объект div'а и имя игрока, запрошенное в диалоговом окне
+    gameManager.startGame(); // запускаем игру
 }
 
 }(jQuery));
