@@ -10,7 +10,21 @@ var ShipRotation = { // объект перечисления состояний
 var TurnResult = {
     MISSED: 0,
     HIT: 1,
-    VICTORY: 2
+    KILLED: 2,
+    VICTORY: 3
+}
+
+var CellOccupationType = { // объект перечисления состояния занятости ячеек
+    FREE: 0, // свободная ячейка
+    OCCUPIED: 1, // ячейка занята кораблем
+    UNAVAILABLE: 2 // соседняя с кораблем ячейка (в ней нельзя размещать новые корабли)
+}
+
+var CellHitType = { // объект перечисления состояния попадания ячеек
+    NONE: 0, // в ячейку не стреляли
+    MISSED: 1, // в ячейку стреляли, но по кораблю не попали
+    HIT: 2, // в ячейку стреляли, по кораблю попали
+    KILLED: 3 // в ячейку стреляли, корабль потоплен
 }
 
 function bind(func, context) { // функция дли привязки контекста, напишем её сами для поддержки ie8-
@@ -55,17 +69,73 @@ function BattleShip (size, rotation) { // конструктор объекто�
     }
 }
 
+function coordsSum(coord1, coord2) {
+    return { x: coord1.x + coord2.x, y : coord1.y + coord2.y };
+}
+function coordsMult(coords, num) {
+    var result = new Array();
+    for (var i = 0; i < coords.length; i++) {
+        result.push({ x: coords[i].x * num, y: coords[i].y * num });
+    }
+    return result;
+}
+
 function ComputerAI(playerField) {
+    //var isFoundShip = false;
+    var lastShot = null;
+    var initHit = null;
+    var foundShipDirection = false;
+    var shootBackward = false;
+    var shootAroundTryCount = -1;
+    var coordsToTry = [{ x: 0, y: 1 },
+                       { x: 0, y: -1 },
+                       { x: 1, y: 0 },
+                       { x: -1, y: 0 }];
+    
     this.takeTurn = function() {
-        var coords = playerField.getNextUnhitCoords(getRandomInt(1, settings.fieldWidth), getRandomInt(1, settings.fieldHeight));
+        var coords;
         
-        return playerField.hit(coords.x, coords.y);
+        if (lastShot == null) {
+            coords = playerField.getNextUnhitCoords(getRandomInt(1, settings.fieldWidth), getRandomInt(1, settings.fieldHeight));
+        } else {
+            if (shootBackward) {
+                coords = coordsSum(lastShot, coordsToTry[shootAroundTryCount]);
+            } else if (foundShipDirection) {
+                coords = coordsSum(lastShot, coordsToTry[shootAroundTryCount]);
+            } else do {
+                shootAroundTryCount++;
+                coords = coordsSum(lastShot, coordsToTry[shootAroundTryCount]); // находим координату вокруг последнего попадания
+            } while (coords.x < 1 || coords.x > settings.fieldWidth || coords.y < 1 || coords.y > settings.fieldHeight
+                     || playerField.getCellInCoords(coords.x, coords.y).getHitState() != CellHitType.NONE) // проверка на допустимость полученных координат
+        }
+        
+        var turnResult = playerField.hit(coords.x, coords.y);
+        if (turnResult == TurnResult.HIT) {
+            if (lastShot != null) {
+                foundShipDirection = true;
+            } else {
+                initHit = coords;
+            }
+            lastShot = coords;
+        } else if (turnResult == TurnResult.KILLED) {
+            lastShot = null;
+            shootAroundTryCount = -1;
+            foundShipDirection = false;
+            shootBackward = false;
+            initHit = null;
+        } else if (foundShipDirection && turnResult == TurnResult.MISSED) {
+            shootBackward = true;
+            lastShot = initHit;
+            coordsToTry = coordsMult(coordsToTry, -1);
+        }
+        
+        return turnResult;
     }
 }
 
 function GameManager(gameBoard, playerName) {
     var isPlayerTurn = true;
-    var computerAI, computerAI2, playerField, computerField;
+    var computerAI, playerField, computerField;
     
     function switchTurn () {
         isPlayerTurn = !isPlayerTurn;
@@ -73,7 +143,7 @@ function GameManager(gameBoard, playerName) {
     }
     
     this.startGame = function () {
-        playerField = new GameFieldManager(false);
+        playerField = new GameFieldManager(true);
         computerField = new GameFieldManager(false);
         
         generateShips(playerField);
@@ -123,6 +193,9 @@ function GameManager(gameBoard, playerName) {
             case TurnResult.HIT:
                 setTimeout(function () { computerTurn(computer, me); }, settings.computerWaitTime)
                 break
+            case TurnResult.KILLED:
+                setTimeout(function () { computerTurn(computer, me); }, settings.computerWaitTime)
+                break
             case TurnResult.VICTORY:
                 restartGame.call(me)
                 break
@@ -142,6 +215,8 @@ function GameManager(gameBoard, playerName) {
                 switchTurn.call(this)
                 break
             case TurnResult.HIT:
+                break
+            case TurnResult.KILLED:
                 break
             case TurnResult.VICTORY:
                 restartGame.call(this)
@@ -346,6 +421,7 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                     }
                     return TurnResult.VICTORY;
                 }
+                return TurnResult.KILLED;
             }
             return TurnResult.HIT; // если попали по кораблю - возвращаем 1
         } else {                   // иначе - 0
@@ -376,19 +452,6 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
     //function cellClicked (event) { // обработчик события нажатия на клетку игрового поля
     //    this.hit(event.data.y, event.data.x);
     //}
-    
-    var CellOccupationType = { // объект перечисления состояния занятости ячеек
-        FREE: 0, // свободная ячейка
-        OCCUPIED: 1, // ячейка занята кораблем
-        UNAVAILABLE: 2 // соседняя с кораблем ячейка (в ней нельзя размещать новые корабли)
-    }
-    
-    var CellHitType = { // объект перечисления состояния попадания ячеек
-        NONE: 0, // в ячейку не стреляли
-        MISSED: 1, // в ячейку стреляли, но по кораблю не попали
-        HIT: 2, // в ячейку стреляли, по кораблю попали
-        KILLED: 3 // в ячейку стреляли, корабль потоплен
-    }
     
     function FieldCell(x, y, jqObject) { // конструктор объекта ячейки
         this.cellObject = jqObject; // jQuery объект ячейки
