@@ -103,7 +103,8 @@ function ComputerAI(playerField) { // конструктор объекта ко
             } else if (foundShipDirection) { // если найдено направление, в котором следует обстреливать корабль
                 coords = coordsSum(lastShot, coordsToTry[shootAroundTryCount]);
                 // проверка на выход за пределы поля:
-                if (coords.x < 1 || coords.x > settings.fieldWidth || coords.y < 1 || coords.y > settings.fieldHeight) {
+                if (coords.x < 1 || coords.x > settings.fieldWidth || coords.y < 1 || coords.y > settings.fieldHeight
+                    || playerField.getCellInCoords(coords.x, coords.y).getHitState() != CellHitType.NONE) {
                     coordsToTry = coordsMult(coordsToTry, -1); // если вышли за пределы поля - "разворачиваем" наши вектора для обстрела
                     coords = coordsSum(initHit, coordsToTry[shootAroundTryCount]);
                 }
