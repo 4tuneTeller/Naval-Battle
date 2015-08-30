@@ -40,9 +40,13 @@
 {
     background-color: red;
 }
+.game-field-cell-hit-effect
+{
+    background-color: black;
+}
 .game-field-cell-missed
 {
-    background-color: grey;
+    background-color: lightgray;
 }
 /*.game-field-invisible-cell
 {

@@ -62,7 +62,15 @@ function GameManager(playerField, computerField, gameBoard) {
             computerField.bindClickEvents(bind(cellClicked, this));
         } else {
             computerField.unBindClickEvents();
+            computerTurn(this);
         }
+    }
+    
+    function computerTurn(me) {
+        while (playerField.hit(getRandomInt(1, settings.fieldWidth), getRandomInt(1, settings.fieldHeight))) {
+                
+        }
+        switchTurn.call(me);
     }
     
     function cellClicked (event) { // обработчик события нажатия на клетку игрового поля
@@ -317,17 +325,29 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
             }
         }
         
+        function hitEffectRemove() {
+            this.cellObject.removeClass("game-field-cell-hit-effect");
+            if (occupationState == CellOccupationType.OCCUPIED) {
+                this.cellObject.addClass("game-field-cell-hit");
+            } else {
+                this.cellObject.addClass("game-field-cell-missed");
+            }
+        }
+        
         this.hit = function () { // функция попадания по клетке
             if (hitState != CellHitType.NONE || this.cellObject == null) return;
             
             if (occupationState == CellOccupationType.OCCUPIED) {
                 hitState = CellHitType.HIT;
                 this.cellObject.removeClass("game-field-cell-with-ship");
-                this.cellObject.addClass("game-field-cell-hit");
+                this.cellObject.addClass("game-field-cell-hit-effect");
             } else {
                 hitState = CellHitType.MISSED;
-                this.cellObject.addClass("game-field-cell-missed");
+                this.cellObject.addClass("game-field-cell-hit-effect");
             }
+            
+            setTimeout(bind(hitEffectRemove, this), 1000);
+            
             this.unBindClickEvent();
             //this.cellObject.removeClass("game-field-cell-clickable");
             //this.cellObject.off("click");
