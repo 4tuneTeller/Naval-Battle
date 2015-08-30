@@ -7,6 +7,12 @@ var ShipRotation = { // объект перечисления состояний
     VERTICAL: 1
 };
 
+var TurnResult = {
+    MISSED: 0,
+    HIT: 1,
+    VICTORY: 2
+}
+
 function bind(func, context) { // функция дли привязки контекста, напишем её сами для поддержки ie8-
   return function() { 
     return func.apply(context, arguments);
@@ -57,9 +63,9 @@ function ComputerAI(playerField) {
     }
 }
 
-function GameManager(playerField, computerField, gameBoard, playerName) {
+function GameManager(gameBoard, playerName) {
     var isPlayerTurn = true;
-    var computerAI = new ComputerAI(playerField);
+    var computerAI, playerField, computerField;
     
     function switchTurn () {
         isPlayerTurn = !isPlayerTurn;
@@ -67,6 +73,14 @@ function GameManager(playerField, computerField, gameBoard, playerName) {
     }
     
     this.startGame = function () {
+        playerField = new GameFieldManager(true);
+        computerField = new GameFieldManager(false);
+        
+        generateShips(playerField);
+        generateShips(computerField);
+        
+        computerAI = new ComputerAI(playerField);
+        
         playerField.fieldCaption.append("<span>Ход компьютера:</span>");
         computerField.fieldCaption.append("<span>Ваш ход, " + playerName + ":</span>");
         
@@ -74,6 +88,11 @@ function GameManager(playerField, computerField, gameBoard, playerName) {
         gameBoard.append(computerField.getFieldDiv());
         
         this.makeTurn();
+    }
+    
+    function restartGame() {
+        gameBoard.empty();
+        this.startGame();
     }
     
     this.makeTurn = function () {
@@ -89,21 +108,44 @@ function GameManager(playerField, computerField, gameBoard, playerName) {
             playerField.getFieldDiv().addClass("game-field-active");
             computerField.getFieldDiv().removeClass("game-field-active");
             computerField.unBindClickEvents();
-            setTimeout(bind(function () { computerTurn(this); }, this), 1000);
+            
+            setTimeout(bind(function () { computerTurn(this); }, this), settings.computerWaitTime);
         }
     }
     
     function computerTurn(me) {
-        if (computerAI.takeTurn()) {
-            setTimeout(function () { computerTurn(me); }, 1000);
-        } else {
-            switchTurn.call(me);
+        switch (computerAI.takeTurn()) {
+            case TurnResult.MISSED:
+                switchTurn.call(me)
+                break
+            case TurnResult.HIT:
+                setTimeout(function () { computerTurn(me); }, settings.computerWaitTime)
+                break
+            case TurnResult.VICTORY:
+                restartGame.call(me)
+                break
+            default:
+                console.log("Error: Unexpected value")
         }
+        //if (computerAI.takeTurn() == TurnResult.MISSED) {
+        //    setTimeout(function () { computerTurn(me); }, settings.computerWaitTime);
+        //} else {
+        //    switchTurn.call(me);
+        //}
     }
     
     function cellClicked (event) { // обработчик события нажатия на клетку игрового поля
-        if (!computerField.hit(event.data.x, event.data.y)) {
-            switchTurn.call(this);
+        switch (computerField.hit(event.data.x, event.data.y)) {
+            case TurnResult.MISSED:
+                switchTurn.call(this)
+                break
+            case TurnResult.HIT:
+                break
+            case TurnResult.VICTORY:
+                restartGame.call(this)
+                break
+            default:
+                console.log("Error: Unexpected value")
         }
     }
 }
@@ -300,11 +342,12 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                     } else {
                         alert("Вы проиграли! :("); // если на поле игрока - игрок проиграл
                     }
+                    return TurnResult.VICTORY;
                 }
             }
-            return true; // если попали по кораблю - возвращаем true
-        } else {         // иначе - false
-            return false;
+            return TurnResult.HIT; // если попали по кораблю - возвращаем 1
+        } else {                   // иначе - 0
+            return TurnResult.MISSED;
         }
     }
     
@@ -489,21 +532,22 @@ $.fn.makeGame = function (options) {
     settings = $.extend({
         // размеры игрового поля (в ячейках) по умолчанию
        fieldWidth: 10,
-       fieldHeight: 10
+       fieldHeight: 10,
+       computerWaitTime: 1000
     }, options );
     
     this.empty();
     
-    var playerField = new GameFieldManager(true); // создаем объект для поля игрока
-    var computerField = new GameFieldManager(false); // создаем объект для поля компьютера
+    //var playerField = new GameFieldManager(true); // создаем объект для поля игрока
+    //var computerField = new GameFieldManager(false); // создаем объект для поля компьютера
     
     //this.append(playerField.getFieldDiv()); // добавляем поле игрока в div, к которому подключен наш jQuery плагин
     //this.append(computerField.getFieldDiv());
     
-    generateShips(playerField);
-    generateShips(computerField);
+    //generateShips(playerField);
+    //generateShips(computerField);
     
-    var gameManager = new GameManager(playerField, computerField, this, prompt("Здравствуйте! Пожалуйста, введите ваше имя:"));
+    var gameManager = new GameManager(this, prompt("Здравствуйте! Пожалуйста, введите ваше имя:"));
     gameManager.startGame();
     //gameManager.makeTurn();
     //playerField.hit(2, 3);
