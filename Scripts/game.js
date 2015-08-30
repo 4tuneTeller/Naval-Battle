@@ -49,28 +49,68 @@ function BattleShip (size, rotation) { // конструктор объекто�
     }
 }
 
-function GameManager(playerField, computerField, gameBoard) {
+function ComputerAI(playerField) {   
+    this.takeTurn = function() {
+        return playerField.hit(getRandomInt(1, settings.fieldWidth), getRandomInt(1, settings.fieldHeight));
+    }
+}
+
+function GameManager(playerField, computerField, gameBoard, playerName) {
     var isPlayerTurn = true;
+    var computerAI = new ComputerAI(playerField);
+    
+    //var computerTurnLabel = $("<div class='game-field-caption'><span>Ход компьютера:</span></div>");
+    //var playerTurnLabel = $("<div class='game-field-caption'><span>Ваш ход, " + playerName + ":</span></div>");
     
     function switchTurn () {
         isPlayerTurn = !isPlayerTurn;
         this.makeTurn();
     }
     
+    this.startGame = function () {
+        //gameBoard.css("display", "table");
+        //gameBoard.append("<div style='display: table-row'></div>").append("<div style='display: table-cell'></div>").append(computerTurnLabel).append("<div style='display: table-cell'></div>").append(playerField.getFieldDiv());
+        //gameBoard.append("<div style='display: table-row'></div>").append("<div style='display: table-cell'></div>").append(playerTurnLabel).append("<div style='display: table-cell'></div>").append(computerField.getFieldDiv());
+        
+        //var leftDiv = $("<div class='left-div'>");
+        //leftDiv.append(computerTurnLabel);
+        //leftDiv.append(playerField.getFieldDiv()); // добавляем поле игрока в div, к которому подключен наш jQuery плагин
+        //var rightDiv = $("<div class='right-div'>");
+        //rightDiv.append(playerTurnLabel);
+        //rightDiv.append(computerField.getFieldDiv());
+        
+        playerField.fieldCaption.append("<span>Ход компьютера:</span>");
+        computerField.fieldCaption.append("<span>Ваш ход, " + playerName + ":</span>");
+        
+        gameBoard.append(playerField.getFieldDiv());
+        gameBoard.append(computerField.getFieldDiv());
+        
+        this.makeTurn();
+    }
+    
     this.makeTurn = function () {
         if (isPlayerTurn) {
+            playerField.fieldCaption.css("visibility", "hidden");
+            computerField.fieldCaption.css("visibility", "visible");
+            playerField.getFieldDiv().removeClass("game-field-active");
+            computerField.getFieldDiv().addClass("game-field-active");
             computerField.bindClickEvents(bind(cellClicked, this));
         } else {
+            playerField.fieldCaption.css("visibility", "visible");
+            computerField.fieldCaption.css("visibility", "hidden");
+            playerField.getFieldDiv().addClass("game-field-active");
+            computerField.getFieldDiv().removeClass("game-field-active");
             computerField.unBindClickEvents();
-            computerTurn(this);
+            setTimeout(bind(function () { computerTurn(this); }, this), 1000);
         }
     }
     
     function computerTurn(me) {
-        while (playerField.hit(getRandomInt(1, settings.fieldWidth), getRandomInt(1, settings.fieldHeight))) {
-                
+        if (computerAI.takeTurn()) {
+            setTimeout(function () { computerTurn(me); }, 1000);
+        } else {
+            switchTurn.call(me);
         }
-        switchTurn.call(me);
     }
     
     function cellClicked (event) { // обработчик события нажатия на клетку игрового поля
@@ -82,7 +122,7 @@ function GameManager(playerField, computerField, gameBoard) {
 
 function GameFieldManager (isPlayer) { // создадим конструктор объекта для работы с игровым полем (параметр указывает, является ли создаваемое поле полем игрока или полем компьютера)
     var gameField = new Array(settings.fieldHeight); // массив для хранения ссылок на объекты jQuery (ячейки игрового поля)
-    
+    this.fieldCaption = $("<div>").addClass("game-field-caption");
     //this.isPlayer = function () { // getter параметра isPlayer
     //    return isPlayer;
     //}
@@ -121,8 +161,8 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
     }
         
     
-    this.getPlayerFieldDiv = function () { // getter объекта таблицы с полем (сам объект у нас приватный)
-        return _$playerFieldDiv;
+    this.getFieldDiv = function () { // getter объекта таблицы с полем (сам объект у нас приватный)
+        return _$fieldDiv;
     }
     
     this.putShipRandom = function (ship) {
@@ -325,11 +365,12 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
             }
         }
         
-        function hitEffectRemove() {
-            this.cellObject.removeClass("game-field-cell-hit-effect");
+        function hitEffectRemove() { // убираем эффект попадания
             if (occupationState == CellOccupationType.OCCUPIED) {
+                this.cellObject.removeClass("game-field-cell-hit-effect");
                 this.cellObject.addClass("game-field-cell-hit");
             } else {
+                this.cellObject.removeClass("game-field-cell-missed-effect");
                 this.cellObject.addClass("game-field-cell-missed");
             }
         }
@@ -343,7 +384,7 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                 this.cellObject.addClass("game-field-cell-hit-effect");
             } else {
                 hitState = CellHitType.MISSED;
-                this.cellObject.addClass("game-field-cell-hit-effect");
+                this.cellObject.addClass("game-field-cell-missed-effect");
             }
             
             setTimeout(bind(hitEffectRemove, this), 1000);
@@ -374,8 +415,9 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
         }
     }
     
-    var _$playerFieldDiv = (function() { // эта функция запустится сразу при создании нового объекта GameFieldManager и сгенерирует игровое поле
-        var $playerFieldDiv = $("<div>").addClass("game-field"); // создаем jQuery-объект таблицы для игрового поля
+    var _$fieldDiv = (function() { // эта функция запустится сразу при создании нового объекта GameFieldManager и сгенерирует игровое поле
+        var $fieldDiv = $("<div>").addClass("game-field"); // создаем jQuery-объект таблицы для игрового поля
+        $fieldDiv.append(this.fieldCaption);
         var initCharCode = "А".charCodeAt(0); // получаем код символа буквы А, для генерации
         var charToSkipCharCode = "Й".charCodeAt(0); // код буквы Й, для того, чтобы ее пропустить
         
@@ -417,10 +459,10 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                 }
                 $tableRow.append($tableCell); // добавляем сгенерированные ячейки в строку таблицы
             }
-            $playerFieldDiv.append($tableRow); // добавляем сгенерированные строки в таблицу
+            $fieldDiv.append($tableRow); // добавляем сгенерированные строки в таблицу
         }
         
-        return $playerFieldDiv;
+        return $fieldDiv;
     }).call(this);
 }
 
@@ -450,14 +492,15 @@ $.fn.makeGame = function (options) {
     var playerField = new GameFieldManager(true); // создаем объект для поля игрока
     var computerField = new GameFieldManager(false); // создаем объект для поля компьютера
     
-    this.append(playerField.getPlayerFieldDiv()); // добавляем поле игрока в div, к которому подключен наш jQuery плагин
-    this.append(computerField.getPlayerFieldDiv());
+    //this.append(playerField.getFieldDiv()); // добавляем поле игрока в div, к которому подключен наш jQuery плагин
+    //this.append(computerField.getFieldDiv());
     
     generateShips(playerField);
     generateShips(computerField);
     
-    var gameManager = new GameManager(playerField, computerField, this);
-    gameManager.makeTurn();
+    var gameManager = new GameManager(playerField, computerField, this, prompt("Здравствуйте! Пожалуйста, введите ваше имя:"));
+    gameManager.startGame();
+    //gameManager.makeTurn();
     //playerField.hit(2, 3);
 }
 
