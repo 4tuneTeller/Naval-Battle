@@ -65,7 +65,7 @@ function ComputerAI(playerField) {
 
 function GameManager(gameBoard, playerName) {
     var isPlayerTurn = true;
-    var computerAI, playerField, computerField;
+    var computerAI, computerAI2, playerField, computerField;
     
     function switchTurn () {
         isPlayerTurn = !isPlayerTurn;
@@ -73,13 +73,14 @@ function GameManager(gameBoard, playerName) {
     }
     
     this.startGame = function () {
-        playerField = new GameFieldManager(true);
+        playerField = new GameFieldManager(false);
         computerField = new GameFieldManager(false);
         
         generateShips(playerField);
         generateShips(computerField);
         
         computerAI = new ComputerAI(playerField);
+        //computerAI2 = new ComputerAI(computerField);
         
         playerField.fieldCaption.append("<span>Ход компьютера:</span>");
         computerField.fieldCaption.append("<span>Ваш ход, " + playerName + ":</span>");
@@ -102,6 +103,7 @@ function GameManager(gameBoard, playerName) {
             playerField.getFieldDiv().removeClass("game-field-active");
             computerField.getFieldDiv().addClass("game-field-active");
             computerField.bindClickEvents(bind(cellClicked, this));
+            //setTimeout(bind(function () { computerTurn(computerAI2, this); }, this), settings.computerWaitTime);
         } else {
             playerField.fieldCaption.css("visibility", "visible");
             computerField.fieldCaption.css("visibility", "hidden");
@@ -109,17 +111,17 @@ function GameManager(gameBoard, playerName) {
             computerField.getFieldDiv().removeClass("game-field-active");
             computerField.unBindClickEvents();
             
-            setTimeout(bind(function () { computerTurn(this); }, this), settings.computerWaitTime);
+            setTimeout(bind(function () { computerTurn(computerAI, this); }, this), settings.computerWaitTime);
         }
     }
     
-    function computerTurn(me) {
-        switch (computerAI.takeTurn()) {
+    function computerTurn(computer, me) {
+        switch (computer.takeTurn()) {
             case TurnResult.MISSED:
                 switchTurn.call(me)
                 break
             case TurnResult.HIT:
-                setTimeout(function () { computerTurn(me); }, settings.computerWaitTime)
+                setTimeout(function () { computerTurn(computer, me); }, settings.computerWaitTime)
                 break
             case TurnResult.VICTORY:
                 restartGame.call(me)
