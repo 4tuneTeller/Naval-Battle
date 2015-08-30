@@ -7,7 +7,7 @@ var ShipRotation = { // объект перечисления состояний
     VERTICAL: 1
 };
 
-var TurnResult = {
+var TurnResult = { // объект перечисления результатов попадания
     MISSED: 0,
     HIT: 1,
     KILLED: 2,
@@ -33,7 +33,7 @@ function bind(func, context) { // функция дли привязки кон�
   };
 }
 
-function getRandomInt(min, max) { 
+function getRandomInt(min, max) { // функция получения случайного целого числа в заданно диапазоне
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
@@ -69,10 +69,11 @@ function BattleShip (size, rotation) { // конструктор объекто�
     }
 }
 
-function coordsSum(coord1, coord2) {
+function coordsSum(coord1, coord2) { // функция суммирования координат
     return { x: coord1.x + coord2.x, y : coord1.y + coord2.y };
 }
-function coordsMult(coords, num) {
+
+function coordsMult(coords, num) { // функция умножения всех координат на число
     var result = new Array();
     for (var i = 0; i < coords.length; i++) {
         result.push({ x: coords[i].x * num, y: coords[i].y * num });
@@ -80,140 +81,136 @@ function coordsMult(coords, num) {
     return result;
 }
 
-function ComputerAI(playerField) {
-    //var isFoundShip = false;
-    var lastShot = null;
-    var initHit = null;
-    var foundShipDirection = false;
-    var shootBackward = false;
-    var shootAroundTryCount = -1;
-    var coordsToTry = [{ x: 0, y: 1 },
+function ComputerAI(playerField) { // конструктор объекта компьютерного противника
+    var lastShot = null; // здесь будет хранитсья координата последнего попадания
+    var initHit = null; // здесь будет храниться координата, по которой впервые попали по кораблю
+    var foundShipDirection = false; // определено ли направление поворота корабля
+    var shootBackward = false; // следует ли стрелять в обратном направлении (если следуя по координатам корабля, он вдруг закончился)
+    var shootAroundTryCount = -1; // число попытока обстрела соседних с кораблем клеток
+    var coordsToTry = [{ x: 0, y: 1 }, // "вектора" для обстрела соседних клеток
                        { x: 0, y: -1 },
                        { x: 1, y: 0 },
                        { x: -1, y: 0 }];
     
-    this.takeTurn = function() {
-        var coords;
+    this.takeTurn = function() { // компьютер делает ход
+        var coords; // координаты для обстрела
         
-        if (lastShot == null) {
+        if (lastShot == null) { // если мы еще ни в кого не попали, стреляем в случайную клетку
             coords = playerField.getNextUnhitCoords(getRandomInt(1, settings.fieldWidth), getRandomInt(1, settings.fieldHeight));
         } else {
-            if (shootBackward) {
+            if (shootBackward) { // если следует продолжать обстрел в обратном направлении (данные для этого вычислены на предыдущем ходу)
                 coords = coordsSum(lastShot, coordsToTry[shootAroundTryCount]);
-            } else if (foundShipDirection) {
+            } else if (foundShipDirection) { // если найдено направление, в котором следует обстреливать корабль
                 coords = coordsSum(lastShot, coordsToTry[shootAroundTryCount]);
+                // проверка на выход за пределы поля:
                 if (coords.x < 1 || coords.x > settings.fieldWidth || coords.y < 1 || coords.y > settings.fieldHeight) {
-                    coordsToTry = coordsMult(coordsToTry, -1);
+                    coordsToTry = coordsMult(coordsToTry, -1); // если вышли за пределы поля - "разворачиваем" наши вектора для обстрела
                     coords = coordsSum(initHit, coordsToTry[shootAroundTryCount]);
                 }
-            } else do {
+            } else do { // если направление для обстрела не найдено, но на предыдущем ходу мы в кого-то попали, пытаемся найти направление, в котором следует продолжать обстрел
                 shootAroundTryCount++;
                 coords = coordsSum(lastShot, coordsToTry[shootAroundTryCount]); // находим координату вокруг последнего попадания
             } while (coords.x < 1 || coords.x > settings.fieldWidth || coords.y < 1 || coords.y > settings.fieldHeight
                      || playerField.getCellInCoords(coords.x, coords.y).getHitState() != CellHitType.NONE) // проверка на допустимость полученных координат
         }
         
-        var turnResult = playerField.hit(coords.x, coords.y);
-        if (turnResult == TurnResult.HIT) {
-            if (lastShot != null) {
+        var turnResult = playerField.hit(coords.x, coords.y); // совершаем выстрел и смотрим результаты
+        if (turnResult == TurnResult.HIT) { // если попали в кого-то
+            if (lastShot != null) { // если до этого уже попадали в этот корабль, записываем, что нашли направление для дальнейшей стрельбы
                 foundShipDirection = true;
-            } else {
+            } else { // если не попадали - сохраняем место первого попадания по этому кораблю
                 initHit = coords;
             }
-            lastShot = coords;
-        } else if (turnResult == TurnResult.KILLED) {
+            lastShot = coords; // сохраняем место последнего попадания по кораблю
+        } else if (turnResult == TurnResult.KILLED) { // если убили корабль - сбрасываем все что запомнили
             lastShot = null;
             shootAroundTryCount = -1;
             foundShipDirection = false;
             shootBackward = false;
             initHit = null;
-        } else if (foundShipDirection && turnResult == TurnResult.MISSED) {
-            shootBackward = true;
-            lastShot = initHit;
-            coordsToTry = coordsMult(coordsToTry, -1);
+        } else if (foundShipDirection && turnResult == TurnResult.MISSED) { // если мы стреляли по направлению корабля, но он вдруг закончился - значит, надо стрелять по нему с другой стороны
+            shootBackward = true; // сохраняем, что надо на следующем ходу стрелять с другой стороны
+            lastShot = initHit; // и что надо начать стрелять с того места, в которое попали первый раз
+            coordsToTry = coordsMult(coordsToTry, -1); // "разворачиваем" вектора стрельбы
         }
         
-        return turnResult;
+        return turnResult; // возвращаем результаты выстрела
     }
 }
 
-function GameManager(gameBoard, playerName) {
+function GameManager(gameBoard, playerName) { // конструктор объекта управления игрой
     var isPlayerTurn = true;
     var computerAI, playerField, computerField;
     
-    function switchTurn () {
+    function switchTurn () { // переключение хода
         isPlayerTurn = !isPlayerTurn;
         this.makeTurn();
     }
     
-    this.startGame = function () {
-        playerField = new GameFieldManager(true);
+    this.startGame = function () { // начало игры
+        playerField = new GameFieldManager(true); // создаем игровые поля
         computerField = new GameFieldManager(false);
         
-        generateShips(playerField);
+        generateShips(playerField); // генерируем корабли на полях
         generateShips(computerField);
         
-        computerAI = new ComputerAI(playerField);
+        computerAI = new ComputerAI(playerField); // создаем объект компьютерного соперника (если немножко поменять код GameManager'а, можно заставить играть компьютер самого с собой :)
         //computerAI2 = new ComputerAI(computerField);
         
-        playerField.fieldCaption.append("<span>Ход компьютера:</span>");
+        playerField.fieldCaption.append("<span>Ход компьютера:</span>"); // заполняем заголовок таблиц
         computerField.fieldCaption.append("<span>Ваш ход, " + playerName + ":</span>");
         
-        gameBoard.append(playerField.getFieldDiv());
+        gameBoard.append(playerField.getFieldDiv()); // размещаем сгенерированные игровые поля в div'е нашего плагина
         gameBoard.append(computerField.getFieldDiv());
         
-        this.makeTurn();
+        this.makeTurn(); // начинаем ходить
     }
     
-    function restartGame() {
+    function restartGame() { // функция перезапуска игры
         gameBoard.empty();
         this.startGame();
     }
     
-    this.makeTurn = function () {
+    this.makeTurn = function () { // функция выполнения хода
         if (isPlayerTurn) {
+            // меняем интерфейс для отображения чей сейчас ход
             playerField.fieldCaption.css("visibility", "hidden");
             computerField.fieldCaption.css("visibility", "visible");
             playerField.getFieldDiv().removeClass("game-field-active");
             computerField.getFieldDiv().addClass("game-field-active");
-            computerField.bindClickEvents(bind(cellClicked, this));
+            computerField.bindClickEvents(bind(cellClicked, this)); // включаем обработчики нажатий на клетки полей 
             //setTimeout(bind(function () { computerTurn(computerAI2, this); }, this), settings.computerWaitTime);
         } else {
             playerField.fieldCaption.css("visibility", "visible");
             computerField.fieldCaption.css("visibility", "hidden");
             playerField.getFieldDiv().addClass("game-field-active");
             computerField.getFieldDiv().removeClass("game-field-active");
-            computerField.unBindClickEvents();
+            computerField.unBindClickEvents(); // отключаем обработчики нажатий на клетки полей
             
-            setTimeout(bind(function () { computerTurn(computerAI, this); }, this), settings.computerWaitTime);
+            setTimeout(bind(function () { computerTurn(computerAI, this); }, this), settings.computerWaitTime); // делаем небольшую паузу и разрешаем компьютеру сделать свой ход
         }
     }
     
-    function computerTurn(computer, me) {
+    function computerTurn(computer, me) { // функция выполнения хода компьютером и обработка его результатов
         switch (computer.takeTurn()) {
-            case TurnResult.MISSED:
+            case TurnResult.MISSED: // если промазал - передаем ход игроку
                 switchTurn.call(me)
                 break
-            case TurnResult.HIT:
+            case TurnResult.HIT: // если попал или убил - делаем паузу и даем компьютеру сходить еще раз
                 setTimeout(function () { computerTurn(computer, me); }, settings.computerWaitTime)
                 break
             case TurnResult.KILLED:
                 setTimeout(function () { computerTurn(computer, me); }, settings.computerWaitTime)
                 break
-            case TurnResult.VICTORY:
+            case TurnResult.VICTORY: // если компьютер выиграл - говорим об этом игроку
                 restartGame.call(me)
                 break
             default:
-                console.log("Error: Unexpected value")
+                console.log("Error: Unexpected value") // на случай непредвиденных обстоятельств
         }
-        //if (computerAI.takeTurn() == TurnResult.MISSED) {
-        //    setTimeout(function () { computerTurn(me); }, settings.computerWaitTime);
-        //} else {
-        //    switchTurn.call(me);
-        //}
     }
     
-    function cellClicked (event) { // обработчик события нажатия на клетку игрового поля
+    function cellClicked (event) { // обработчик события нажатия на клетку игрового поля (то же, что и для компьютера, только для игрока)
         switch (computerField.hit(event.data.x, event.data.y)) {
             case TurnResult.MISSED:
                 switchTurn.call(this)
@@ -231,12 +228,9 @@ function GameManager(gameBoard, playerName) {
     }
 }
 
-function GameFieldManager (isPlayer) { // создадим конструктор объекта для работы с игровым полем (параметр указывает, является ли создаваемое поле полем игрока или полем компьютера)
+function GameFieldManager (isPlayer) { // конструктор объекта для работы с игровым полем (параметр указывает, является ли создаваемое поле полем игрока или полем компьютера)
     var gameField = new Array(settings.fieldHeight); // массив для хранения ссылок на объекты jQuery (ячейки игрового поля)
-    this.fieldCaption = $("<div>").addClass("game-field-caption");
-    //this.isPlayer = function () { // getter параметра isPlayer
-    //    return isPlayer;
-    //}
+    this.fieldCaption = $("<div>").addClass("game-field-caption"); // заголовок поля
     
     this.getCellInCoords = function (x, y) { // функция получения объекта клетки по координатам
         if (x > 0 && x <= settings.fieldWidth && y > 0 && y <= settings.fieldHeight) {
@@ -259,7 +253,7 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
     var shipsOnField = new Array(); // массив для хранения кораблей на поле
     
     function addShip(ship) { // функция добавления корабля на поле
-        for (var ci = 0; ci < ship.coords.length; ci++) { // пройдемся по всем координатам корабля, пометим соответсвующие клетки корабля как заняты, а клетки вокруг - как недоступные для размещения в них новых кораблей
+        for (var ci = 0; ci < ship.coords.length; ci++) { // пройдемся по всем координатам корабля, пометим соответсвующие клетки корабля как занятые, а клетки вокруг - как недоступные для размещения в них новых кораблей
             var c = ship.coords[ci];
             this.getCellInCoords(c.x, c.y).occupy();
             var cellsAround = getCellsAroundCoords(c.x, c.y , this);
@@ -276,15 +270,15 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
         return _$fieldDiv;
     }
     
-    function getNextFreeCoords(initX, initY, maxX, maxY) {
+    function getNextFreeCoords(initX, initY, maxX, maxY) { // функция-обертка получения следующих незанятых координат, после указанных (если указанные координаты свободны - возвращает их)
         return getNextCoords(initX, initY, maxX, maxY, true);
     }
     
-    this.getNextUnhitCoords = function(initX, initY) {
+    this.getNextUnhitCoords = function(initX, initY) { // функция-обертка получения следующих необстреленных координат, после указанных (если указанные координаты не обстрелены - возвращает их)
         return getNextCoords(initX, initY, settings.fieldWidth, settings.fieldHeight, false);
     }
     
-    function getNextCoords(initX, initY, maxX, maxY, isFindFree) {
+    function getNextCoords(initX, initY, maxX, maxY, isFindFree) { // функция получения следующих координат, по одному из двух критериве (свободные или необстреленные)
         var curX = initX;
         var curY = initY;
         if (curX > maxX) {
@@ -315,64 +309,49 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
         return {x: curX, y: curY};
     }
     
-    this.putShipRandom = function (ship) {
+    this.putShipRandom = function (ship) { // функция размещения корабля в случайном месте 
         var isHor = Number(ship.rotation == ShipRotation.HORIZONTAL);
         var isVert = Number(ship.rotation == ShipRotation.VERTICAL);
-        var maxX = settings.fieldWidth - isHor * (ship.size - 1);
+        var maxX = settings.fieldWidth - isHor * (ship.size - 1); // определяем максимальные координаты, дальше которых пробовать разместить корабль не имеет смысле (выйдет за границы поля)
         var maxY = settings.fieldHeight - isVert * (ship.size - 1);
         
-        //var shipWidth = (ship.rotation == ShipRotation.HORIZONTAL) ? ship.size : 1;
-        //var shipHeight = (ship.rotation == ShipRotation.VERTICAL) ? ship.size : 1;
-        var randX = getRandomInt(1, maxX);
+        var randX = getRandomInt(1, maxX); // получаем случайные координаты
         var randY = getRandomInt(1, maxY);
-        //var randX = initRandX;
-        //var randY = initRandY;
-        var foundRoom = false;
-        var foundCoords;
-        var startX = randX;
+        var foundRoom = false; // нашли ли место
+        var foundCoords; // найденные координаты
+        var startX = randX; // сохраним первоначально сгенерированные координаты, для обнаружение зацикливания при поиске места
         var startY = randY;
         
-        //var debugStartTime = new Date().getTime();
-        
         while (!foundRoom) {
-            
-            //var debugEndTime = new Date().getTime();
-            //if (debugEndTime - debugStartTime > 2000) {
-            //    console.log("not enought free space X:" + randX + " Y:" + randY);
-            //    debugger;
-            //    //return;
-            //}
-            
             foundCoords = new Array();
             var tmpFirstCoord = getNextFreeCoords(startX, startY, maxX, maxY);
             if (tmpFirstCoord == null) return;
             
-            foundCoords.push(tmpFirstCoord);
+            foundCoords.push(tmpFirstCoord); // нашли какие-то координаты, теперь будем проверять, поместится ли туда корабль
             foundRoom = true;
-            for (var i = 1; i < ship.size; i++) {
+            for (var i = 1; i < ship.size; i++) { // пройдемся по всем координатам корабля
                 var tmpX = tmpFirstCoord.x + i * isHor;
                 var tmpY = tmpFirstCoord.y + i * isVert;
-                if (gameField[tmpX][tmpY].getOccupationState() == CellOccupationType.FREE) {
-                    foundCoords.push({x:tmpX, y:tmpY});
+                if (gameField[tmpX][tmpY].getOccupationState() == CellOccupationType.FREE) { // проверяем, занята ли клетка, в которой пытаемся разместить корабль
+                    foundCoords.push({x:tmpX, y:tmpY}); // если нет - сохраняем координаты
                 }
-                else {
+                else { // иначе - идем в следующую клетку
                     if (++startX > maxX) {
                         if (++startY > maxY) {
                             startY = 1;
                         }
                         startX = 1;
                     }
-                    //startY = tmpY;
                     foundRoom = false;
                     break;
                 }
             }
-            if (!foundRoom && startX == randX && startY == randY) {
-                if (ship.isFlipped()) {
+            if (!foundRoom && startX == randX && startY == randY) { // если прошлись по всему полю, но места так и не нашли
+                if (ship.isFlipped()) { // если корабль уже один раз поворачивали - говорим, что места не нашлось (такого быть не может в классических правилах Морского Боя)
                     console.log("Not enought free space for the ship");
                     return;
                 }
-                ship.flip();
+                ship.flip(); // поворачиваем корабль и пытаемся снова найти для него место на поле
                 isHor = Number(ship.rotation == ShipRotation.HORIZONTAL);
                 isVert = Number(ship.rotation == ShipRotation.VERTICAL);
                 maxX = settings.fieldWidth - isHor * (ship.size - 1);
@@ -380,8 +359,8 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
             }
         }
         
-        ship.coords = foundCoords;
-        addShip.call(this, ship);
+        ship.coords = foundCoords; // когда нашли место для нашего кораблья - сохраняем его координаты кораблю
+        addShip.call(this, ship);  // и добавляем его на поле
     }
     
     function getShipInCoords(x, y) { // функция получения корабля, расположенного по заданным координатам
@@ -397,8 +376,8 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
     }
     
     this.hit = function (x, y) { // функция реакции на попадание по клетке игрового поля
-        gameField[x][y].hit();
-        var shipInCoords = getShipInCoords(x, y);
+        gameField[x][y].hit(); // вызовем реакцию у самой клетки
+        var shipInCoords = getShipInCoords(x, y); // проверим, нет ли корабля в том месте, куда попали
         if (shipInCoords != null) {
             if (!shipInCoords.hit()) { // если в клетке находился корабль, проверяем, не убит ли он
                 for (var ci = 0; ci < shipInCoords.coords.length; ci++) { // пройдемся по всем координатам корабля, пометим клетки вокруг него как пораженные - чтобы было ясно, что по ним стрелять уже нет смысла
@@ -411,7 +390,7 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                 }
                 // проверка на победу
                 var isVictory = true;
-                for (var s = 0; s < shipsOnField.length; s++) {
+                for (var s = 0; s < shipsOnField.length; s++) { // проверим состояние всех кораблей
                     if (shipsOnField[s].isAlive()) {
                         isVictory = false;
                         break;
@@ -427,14 +406,14 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                 }
                 return TurnResult.KILLED;
             }
-            return TurnResult.HIT; // если попали по кораблю - возвращаем 1
-        } else {                   // иначе - 0
+            return TurnResult.HIT;
+        } else {                  
             return TurnResult.MISSED;
         }
     }
     
-    this.bindClickEvents = function (clickEvent) {
-        if (isPlayer) return;
+    this.bindClickEvents = function (clickEvent) { // привязываем обработчик события нажатия на клетку всем клеткам
+        if (isPlayer) return; // убедимся, что эта функция вызвана не на поле игрока
         
         for (var i = 1; i < gameField.length; i++) {
             for (var j = 1; j < gameField[i].length; j++) {
@@ -443,7 +422,7 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
         }
     }
     
-    this.unBindClickEvents = function () {
+    this.unBindClickEvents = function () { // отвязываем обработчик события нажатия на клетку всем клеткам
         if (isPlayer) return;
         
         for (var i = 1; i < gameField.length; i++) {
@@ -452,10 +431,6 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
             }
         }
     }
-    
-    //function cellClicked (event) { // обработчик события нажатия на клетку игрового поля
-    //    this.hit(event.data.y, event.data.x);
-    //}
     
     function FieldCell(x, y, jqObject) { // конструктор объекта ячейки
         this.cellObject = jqObject; // jQuery объект ячейки
@@ -471,12 +446,12 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
             return hitState;
         }
         
-        this.occupy = function () {
+        this.occupy = function () { // помечаем клетку, как занятую и показываем корабль, если действие происходит на поле игрока
             occupationState = CellOccupationType.OCCUPIED;
             if (isPlayer) showShip(this);
         }
         
-        this.reserv = function () {
+        this.reserv = function () { // помечаем клетку, как недоступную для размещения на ней новых кораблей
             if (occupationState != CellOccupationType.OCCUPIED) {
                 occupationState = CellOccupationType.UNAVAILABLE;
             }
@@ -503,31 +478,27 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                 hitState = CellHitType.MISSED;
                 this.cellObject.addClass("game-field-cell-missed-effect");
             }
-            
             setTimeout(bind(hitEffectRemove, this), 1000);
             
             this.unBindClickEvent();
-            //this.cellObject.removeClass("game-field-cell-clickable");
-            //this.cellObject.off("click");
         }
         
-        this.bindClickEvent = function (clickEvent) {
+        this.bindClickEvent = function (clickEvent) { // привязываем обработчик события нажатия к текущей клетке
             if (hitState != CellHitType.NONE || this.cellObject == null) return;
             
-            this.cellObject.addClass("game-field-cell-clickable"); // если ячейка является частью поля врага - добавляем класс для нажимания ячейки
-            //var clickFunc = bind(clickEvent, this); // привязываем контекст текущего объекта GameFieldManager к функции, которую будем вызывать по нажатию на ячейку
+            this.cellObject.addClass("game-field-cell-clickable");
             this.cellObject.on("click", { // привязка события к ячейке
                     x: x, // расположение ячейки в таблице
                     y: y
                 }, clickEvent);
         }
         
-        this.unBindClickEvent = function () {
+        this.unBindClickEvent = function () { // отвязываем обработчик события нажатия от текущей клетки
             this.cellObject.removeClass("game-field-cell-clickable");
             this.cellObject.off("click");
         }
         
-        function showShip (me) {
+        function showShip (me) { // отображаем корабль на поле
             me.cellObject.addClass("game-field-cell-with-ship");
         }
     }
@@ -559,14 +530,6 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                     }
                 } else {
                     $tableCell.addClass("game-field-cell"); // если ячейка является частью игрового поля - присваиваем ей соответсвующий класс
-                    //if (!isPlayer) {
-                    //    $tableCell.addClass("game-field-cell-clickable"); // если ячейка является частью поля врага - добавляем класс для нажимания ячейки
-                    //    var clickFunc = bind(cellClicked, this); // привязываем контекст текущего объекта GameFieldManager к функции, которую будем вызывать по нажатию на ячейку
-                    //    $tableCell.on("click", { // привязка события к ячейке
-                    //            x: i, // расположение ячейки в таблице
-                    //            y: j
-                    //        }, clickFunc); // функция, которая будет вызываться по нажатии на ячейку
-                    //}
                 }
                 if (i != 0 && j != 0) { // добавляем ячейки игрового поля в массив
                     if (i == 1) {
