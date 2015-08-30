@@ -50,17 +50,40 @@ function BattleShip (size, rotation) { // конструктор объекто�
 }
 
 function GameManager(playerField, computerField, gameBoard) {
+    var isPlayerTurn = true;
     
+    function switchTurn () {
+        isPlayerTurn = !isPlayerTurn;
+        this.makeTurn();
+    }
+    
+    this.makeTurn = function () {
+        if (isPlayerTurn) {
+            computerField.bindClickEvents(bind(cellClicked, this));
+        } else {
+            computerField.unBindClickEvents();
+        }
+    }
+    
+    function cellClicked (event) { // обработчик события нажатия на клетку игрового поля
+        if (!computerField.hit(event.data.x, event.data.y)) {
+            switchTurn.call(this);
+        }
+    }
 }
 
 function GameFieldManager (isPlayer) { // создадим конструктор объекта для работы с игровым полем (параметр указывает, является ли создаваемое поле полем игрока или полем компьютера)
     var gameField = new Array(settings.fieldHeight); // массив для хранения ссылок на объекты jQuery (ячейки игрового поля)
     
+    //this.isPlayer = function () { // getter параметра isPlayer
+    //    return isPlayer;
+    //}
+    
     this.getCellInCoords = function (x, y) { // функция получения объекта клетки по координатам
         if (x > 0 && x <= settings.fieldWidth && y > 0 && y <= settings.fieldHeight) {
             return gameField[x][y];
         }
-        else return new FieldCell(null); // если заданы некорректны координаты - вернем "несуществующую" клетку, любые манипуляции с ней никак не повлияют на игру
+        else return new FieldCell(-1, -1, null); // если заданы некорректны координаты - вернем "несуществующую" клетку, любые манипуляции с ней никак не повлияют на игру
     }
     
     function getCellsAroundCoords(x, y, fieldManager) { // функция для получения всех клеток вокруг клетки с координатами x и y
@@ -204,36 +227,61 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
     this.hit = function (x, y) { // функция реакции на попадание по клетке игрового поля
         gameField[x][y].hit();
         var shipInCoords = getShipInCoords(x, y);
-        if (shipInCoords != null && !shipInCoords.hit()) { // если в клетке находился корабль, проверяем, не убит ли он
-            for (var ci = 0; ci < shipInCoords.coords.length; ci++) { // пройдемся по всем координатам корабля, пометим клетки вокруг него как пораженные - чтобы было ясно, что по ним стрелять уже нет смысла
-                var c = shipInCoords.coords[ci];
-                this.getCellInCoords(c.x, c.y).hit(); 
-                var cellsAround = getCellsAroundCoords(c.x, c.y, this);
-                for (var i = 0; i < cellsAround.length; i++) {
-                    cellsAround[i].hit();
+        if (shipInCoords != null) {
+            if (!shipInCoords.hit()) { // если в клетке находился корабль, проверяем, не убит ли он
+                for (var ci = 0; ci < shipInCoords.coords.length; ci++) { // пройдемся по всем координатам корабля, пометим клетки вокруг него как пораженные - чтобы было ясно, что по ним стрелять уже нет смысла
+                    var c = shipInCoords.coords[ci];
+                    this.getCellInCoords(c.x, c.y).hit(); 
+                    var cellsAround = getCellsAroundCoords(c.x, c.y, this);
+                    for (var i = 0; i < cellsAround.length; i++) {
+                        cellsAround[i].hit();
+                    }
+                }
+                // проверка на победу
+                var isVictory = true;
+                for (var s = 0; s < shipsOnField.length; s++) {
+                    if (shipsOnField[s].isAlive()) {
+                        isVictory = false;
+                        break;
+                    }
+                }
+                if (isVictory) {
+                    if (!isPlayer) {
+                        alert("Вы выиграли! :)"); // если разгорм на поле противника - то игрок выиграл
+                    } else {
+                        alert("Вы проиграли! :("); // если на поле игрока - игрок проиграл
+                    }
                 }
             }
-            // проверка на победу
-            var isVictory = true;
-            for (var s = 0; s < shipsOnField.length; s++) {
-                if (shipsOnField[s].isAlive()) {
-                    isVictory = false;
-                    break;
-                }
-            }
-            if (isVictory) {
-                if (!isPlayer) {
-                    alert("Вы выиграли! :)"); // если разгорм на поле противника - то игрок выиграл
-                } else {
-                    alert("Вы проиграли! :("); // если на поле игрока - игрок проиграл
-                }
+            return true; // если попали по кораблю - возвращаем true
+        } else {         // иначе - false
+            return false;
+        }
+    }
+    
+    this.bindClickEvents = function (clickEvent) {
+        if (isPlayer) return;
+        
+        for (var i = 1; i < gameField.length; i++) {
+            for (var j = 1; j < gameField[i].length; j++) {
+                gameField[i][j].bindClickEvent(clickEvent);
             }
         }
     }
     
-    function cellClicked (event) { // обработчик события нажатия на клетку игрового поля
-        this.hit(event.data.y, event.data.x);
+    this.unBindClickEvents = function () {
+        if (isPlayer) return;
+        
+        for (var i = 1; i < gameField.length; i++) {
+            for (var j = 1; j < gameField[i].length; j++) {
+                gameField[i][j].unBindClickEvent();
+            }
+        }
     }
+    
+    //function cellClicked (event) { // обработчик события нажатия на клетку игрового поля
+    //    this.hit(event.data.y, event.data.x);
+    //}
     
     var CellOccupationType = { // объект перечисления состояния занятости ячеек
         FREE: 0, // свободная ячейка
@@ -248,7 +296,7 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
         KILLED: 3 // в ячейку стреляли, корабль потоплен
     }
     
-    function FieldCell(jqObject) { // конструктор объекта ячейки
+    function FieldCell(x, y, jqObject) { // конструктор объекта ячейки
         this.cellObject = jqObject; // jQuery объект ячейки
         
         var hitState = CellHitType.NONE; // состояние попадания по ячейке
@@ -280,6 +328,23 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                 hitState = CellHitType.MISSED;
                 this.cellObject.addClass("game-field-cell-missed");
             }
+            this.unBindClickEvent();
+            //this.cellObject.removeClass("game-field-cell-clickable");
+            //this.cellObject.off("click");
+        }
+        
+        this.bindClickEvent = function (clickEvent) {
+            if (hitState != CellHitType.NONE || this.cellObject == null) return;
+            
+            this.cellObject.addClass("game-field-cell-clickable"); // если ячейка является частью поля врага - добавляем класс для нажимания ячейки
+            //var clickFunc = bind(clickEvent, this); // привязываем контекст текущего объекта GameFieldManager к функции, которую будем вызывать по нажатию на ячейку
+            this.cellObject.on("click", { // привязка события к ячейке
+                    x: x, // расположение ячейки в таблице
+                    y: y
+                }, clickEvent);
+        }
+        
+        this.unBindClickEvent = function () {
             this.cellObject.removeClass("game-field-cell-clickable");
             this.cellObject.off("click");
         }
@@ -315,20 +380,20 @@ function GameFieldManager (isPlayer) { // создадим конструкто�
                     }
                 } else {
                     $tableCell.addClass("game-field-cell"); // если ячейка является частью игрового поля - присваиваем ей соответсвующий класс
-                    if (!isPlayer) {
-                        $tableCell.addClass("game-field-cell-clickable"); // если ячейка является частью поля врага - добавляем класс для нажимания ячейки
-                        var clickFunc = bind(cellClicked, this); // привязываем контекст текущего объекта GameFieldManager к функции, которую будем вызывать по нажатию на ячейку
-                        $tableCell.on("click", { // привязка события к ячейке
-                                x: i, // расположение ячейки в таблице
-                                y: j
-                            }, clickFunc); // функция, которая будет вызываться по нажатии на ячейку
-                    }
+                    //if (!isPlayer) {
+                    //    $tableCell.addClass("game-field-cell-clickable"); // если ячейка является частью поля врага - добавляем класс для нажимания ячейки
+                    //    var clickFunc = bind(cellClicked, this); // привязываем контекст текущего объекта GameFieldManager к функции, которую будем вызывать по нажатию на ячейку
+                    //    $tableCell.on("click", { // привязка события к ячейке
+                    //            x: i, // расположение ячейки в таблице
+                    //            y: j
+                    //        }, clickFunc); // функция, которая будет вызываться по нажатии на ячейку
+                    //}
                 }
                 if (i != 0 && j != 0) { // добавляем ячейки игрового поля в массив
                     if (i == 1) {
                         gameField[j] = new Array(settings.fieldWidth); // инициализируем новую строку в массиве
                     }
-                    gameField[j][i] = new FieldCell($tableCell); // сохраняем объект ячейки в массив для последующего доступа
+                    gameField[j][i] = new FieldCell(j, i, $tableCell); // сохраняем объект ячейки в массив для последующего доступа
                 }
                 $tableRow.append($tableCell); // добавляем сгенерированные ячейки в строку таблицы
             }
@@ -370,6 +435,9 @@ $.fn.makeGame = function (options) {
     
     generateShips(playerField);
     generateShips(computerField);
+    
+    var gameManager = new GameManager(playerField, computerField, this);
+    gameManager.makeTurn();
     //playerField.hit(2, 3);
 }
 
