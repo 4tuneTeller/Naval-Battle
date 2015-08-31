@@ -103,16 +103,13 @@ function ComputerAI(playerField) { // конструктор объекта ко
             } else if (foundShipDirection) { // если найдено направление, в котором следует обстреливать корабль
                 coords = coordsSum(lastShot, coordsToTry[shootAroundTryCount]);
                 // проверка на выход за пределы поля:
-                if (coords.x < 1 || coords.x > settings.fieldWidth || coords.y < 1 || coords.y > settings.fieldHeight
-                    || playerField.getCellInCoords(coords.x, coords.y).getHitState() != CellHitType.NONE) {
-                    coordsToTry = coordsMult(coordsToTry, -1); // если вышли за пределы поля - "разворачиваем" наши вектора для обстрела
+                if (verifyCoords(coords, playerField)) { // если вышли за пределы поля - "разворачиваем" наши вектора для обстрела
                     coords = coordsSum(initHit, coordsToTry[shootAroundTryCount]);
                 }
             } else do { // если направление для обстрела не найдено, но на предыдущем ходу мы в кого-то попали, пытаемся найти направление, в котором следует продолжать обстрел
                 shootAroundTryCount++;
                 coords = coordsSum(lastShot, coordsToTry[shootAroundTryCount]); // находим координату вокруг последнего попадания
-            } while (coords.x < 1 || coords.x > settings.fieldWidth || coords.y < 1 || coords.y > settings.fieldHeight
-                     || playerField.getCellInCoords(coords.x, coords.y).getHitState() != CellHitType.NONE) // проверка на допустимость полученных координат
+            } while (verifyCoords(coords, playerField)) // проверка на допустимость полученных координат
         }
         
         var turnResult = playerField.hit(coords.x, coords.y); // совершаем выстрел и смотрим результаты
@@ -136,6 +133,11 @@ function ComputerAI(playerField) { // конструктор объекта ко
         }
         
         return turnResult; // возвращаем результаты выстрела
+    }
+    
+    function verifyCoords(coords, gameField) { // функция проверки координат на возможность стрельбы
+        return coords.x < 1 || coords.x > settings.fieldWidth || coords.y < 1 || coords.y > settings.fieldHeight
+                    || gameField.getCellInCoords(coords.x, coords.y).getHitState() != CellHitType.NONE;
     }
 }
 
